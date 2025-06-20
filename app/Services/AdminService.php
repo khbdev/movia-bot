@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Channel;
+use App\Models\Movia;
 use App\Repositories\ChannelRepository;
 use App\Repositories\MovieRepository;
 use App\Repositories\UserRepository;
@@ -9,16 +11,14 @@ use App\Repositories\UserRepository;
 class AdminService
 {
     protected UserRepository $userRepository;
-
     protected ChannelRepository $channelRepository;
-
     protected MovieRepository $movieRepository;
 
     public function __construct()
     {
-        $this->userRepository = new UserRepository;
-        $this->channelRepository = new ChannelRepository;
-        $this->movieRepository = new MovieRepository; // Qo'shilgan qator
+        $this->userRepository = new UserRepository();
+        $this->channelRepository = new ChannelRepository();
+        $this->movieRepository = new MovieRepository();
     }
 
     public function getAllUsers()
@@ -28,31 +28,66 @@ class AdminService
 
     public function getAllChannels()
     {
-        return $this->channelRepository->getAllChannels();
+        return Channel::orderBy('created_at', 'desc')->get();
     }
 
-    public function addChannel(array $data)
+    public function addChannel(array $data): bool
     {
-        return $this->channelRepository->create($data);
+        try {
+            Channel::create([
+                'name' => $data['name'],
+                'link' => $data['link'],
+            ]);
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
-    public function deleteChannel(int $id)
+    public function deleteChannel(int $channelId): bool
     {
-        return $this->channelRepository->delete($id);
+        try {
+            $channel = Channel::find($channelId);
+            if ($channel) {
+                $channel->delete();
+                return true;
+            }
+            return false;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     public function getAllMovies()
     {
-        return $this->movieRepository->getAllMovies();
+        return Movia::orderBy('created_at', 'desc')->get();
     }
 
-    public function addMovie(array $data)
+    public function addMovie(array $data): bool
     {
-        return $this->movieRepository->create($data);
+        try {
+            Movia::create([
+                'name' => $data['name'],
+                'code' => $data['code'],
+                'raw_post' => $data['raw_post'],
+            ]);
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
-    public function deleteMovie(int $id)
+    public function deleteMovie(int $movieId): bool
     {
-        return $this->movieRepository->delete($id);
+        try {
+            $movie = Movia::find($movieId);
+            if ($movie) {
+                $movie->delete();
+                return true;
+            }
+            return false;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }

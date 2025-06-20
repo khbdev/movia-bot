@@ -140,6 +140,55 @@ class TelegramCommandRouter
     return;
 }
 
+if ($text === 'Пользователи') {
+    $adminService = new AdminService();
+    $users = $adminService->getAllUsers();
+
+    if ($users->isEmpty()) {
+        TelegramSender::sendMessage($chatId, "❌ Пользователей нет.");
+        return;
+    }
+
+    $messages = []; // barcha xabar bo‘laklari shu yerda yig‘iladi
+    $currentMessage = "<b>📋 Список пользователей</b>\n";
+    $currentMessage .= "━━━━━━━━━━━━━━━━━━━━━━\n";
+    $messageLimit = 4000; // xavfsizlik uchun 4096 emas, 4000 belgida to‘xtatamiz
+
+    foreach ($users as $index => $user) {
+        $userBlock  = "<b>🔹 Пользователь №" . ($index + 1) . "</b>\n";
+        $userBlock .= "👤 <b>Имя:</b> {$user->first_name} {$user->last_name}\n";
+        $userBlock .= "🆔 <b>ID:</b> <code>{$user->telegram_id}</code>\n";
+        $userBlock .= "💬 <b>Username:</b> " . ($user->username ? "@{$user->username}" : '—') . "\n";
+        $userBlock .= "📅 <b>Регистрация:</b> {$user->registered_at}\n";
+        $userBlock .= "🛡 <b>Роль:</b> {$user->role}\n";
+        $userBlock .= "━━━━━━━━━━━━━━━━━━━━━━\n";
+
+        // agar qo‘shgandan keyin limitdan oshib ketsa, eski xabarni saqlab, yangisini boshlaymiz
+        if (strlen($currentMessage . $userBlock) > $messageLimit) {
+            $messages[] = $currentMessage;
+            $currentMessage = "";
+        }
+
+        $currentMessage .= $userBlock;
+    }
+
+    // oxirgi bo‘lakni qo‘shamiz
+    if (!empty($currentMessage)) {
+        // umumiy foydalanuvchilar soni
+        $currentMessage .= "\n📌 <b>Всего пользователей:</b> " . count($users);
+        $messages[] = $currentMessage;
+    }
+
+    // barcha xabarlarni yuboramiz
+    foreach ($messages as $msg) {
+        TelegramSender::sendMessage($chatId, $msg, null, 'HTML');
+    }
+
+    return;
+}
+
+
+
 
         // Админ разделы
         if ($text === 'Каналы') {
@@ -214,7 +263,7 @@ class TelegramCommandRouter
         if (app('cache')->get("movie:{$chatId}:state") === 'awaiting_name') {
             app('cache')->put("movie:{$chatId}:name", $text, 600);
             app('cache')->put("movie:{$chatId}:state", 'awaiting_code', 600);
-            TelegramSender::sendMessage($chatId, '🔢 Теперь введите код фильма (например: TITANIC_001):');
+            TelegramSender::sendMessage($chatId, '🔢 Теперь введите код фильма (например: 111, 222, 456):');
             return;
         }
 
@@ -268,6 +317,7 @@ class TelegramCommandRouter
             ];
             TelegramSender::sendMessage($chatId, 'Выберите действие:', $keyboard);
         }
+        
 
         // Рассылка сообщения
         if ($text === 'Сообщение') {
