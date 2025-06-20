@@ -3,7 +3,7 @@ name: 🚀 Deploy Laravel to VPS
 on:
   push:
     branches:
-      - main  # agar sen "master" branch ishlatsang, buni o'zgartirtttttttttt
+      - main  # agar sen "master" branch ishlatsang, buni o'zgartirttttttttttsss
 
 jobs:
   deploy:
