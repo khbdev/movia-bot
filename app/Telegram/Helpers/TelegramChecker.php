@@ -3,6 +3,7 @@
 namespace App\Telegram\Helpers;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TelegramChecker
 {
@@ -11,49 +12,74 @@ class TelegramChecker
     public function __construct()
     {
         $this->botToken = env('TELEGRAM_BOT_TOKEN');
+
+        if (!$this->botToken) {
+            Log::error("Telegram bot token topilmadi.");
+            throw new \Exception("Telegram bot token topilmadi.");
+        }
     }
 
-    // Foydalanuvchining kanalga obuna ekanligini tekshirish
-    public function isUserSubscribed(string $channelLink, int $userId): bool
+    /**
+     * Foydalanuvchining kanalga obuna ekanligini tekshirish
+     */
+    public function isUserSubscribed(string $channelLinkOrId, int $userId): bool
     {
-        // Kanaldan chat_id olish (masalan: @kanalnomi yoki -100123456789)
-        $chatId = $this->extractChatId($channelLink);
+        // Chat ID olish
+        $chatId = $this->extractChatId($channelLinkOrId);
 
-        if (!$chatId) return false;
+        if (!$chatId) {
+            Log::warning("Noto'g'ri kanal havolasi yoki chat_id: " . $channelLinkOrId);
+            return false;
+        }
 
+        // getChatMember API so'rovi
         $url = "https://api.telegram.org/bot{$this->botToken}/getChatMember"; 
 
         try {
-            $response = Http::post($url, [
+            $response = Http::timeout(10)->post($url, [
                 'chat_id' => $chatId,
                 'user_id' => $userId,
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                $status = $data['result']['status'] ?? null;
-                return in_array($status, ['member', 'administrator', 'creator']);
+
+                if (isset($data['result']['status'])) {
+                    $status = $data['result']['status'];
+                    $validStatuses = ['member', 'administrator', 'creator'];
+                    return in_array($status, $validStatuses);
+                }
+
+                Log::info("Foydalanuvchi holati aniqlanmadi: " . json_encode($data));
+                return false;
             }
+
+            // Xato bo'lsa logga yozish
+            $error = $response->json();
+            Log::error("Telegram API xatosi: " . json_encode($error));
+
+            return false;
         } catch (\Exception $e) {
+            Log::error("So'rovda xato yuz berdi: " . $e->getMessage());
             return false;
         }
-
-        return false;
     }
 
-    // Kanal linkidan chat_id olish
-    private function extractChatId(string $channelLink): string|false
+    /**
+     * Kanaldan chat_id ni ajratib olish
+     */
+    private function extractChatId(string $input): string|false
     {
-        // Agar username bo'lsa: https://t.me/kanalnomi 
-        if (str_contains($channelLink, 't.me/')) {
-            $parts = explode('/', $channelLink);
+        // Agar link bo'lsa, username ni olish
+        if (str_contains($input, 't.me/')) {
+            $parts = explode('/', $input);
             $username = end($parts);
             return '@' . $username;
         }
 
         // To'g'ridan-to'g'ri chat_id (masalan: -100123456789)
-        if (is_numeric($channelLink)) {
-            return $channelLink;
+        if (preg_match('/^-?\d+$/', $input)) {
+            return $input;
         }
 
         return false;
